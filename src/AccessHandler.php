@@ -7,7 +7,7 @@ class AccessHandler
 {
   protected $authenticator;
 
-  public function __construct(AuthenticatorInterface $authenticator)
+  public function __construct(Authenticator $authenticator)
   {
     $this->authenticator = $authenticator;
   }

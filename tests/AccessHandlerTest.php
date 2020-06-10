@@ -3,43 +3,47 @@
 use PHPUnit\Framework\TestCase;
 use App\AccessHandler;
 use App\Authenticator;
-use App\SessionArrayDriver;
-use App\SessionManager;
-use App\Stubs\AuthenticatorStub;
+use App\User;
 
 class AccessHandlerTest extends TestCase
 {
+  protected $access;
+
+  public function setUp() : void
+  {
+    $this->access = new AccessHandler($this->getAuthenticatorMock());
+  }
+
+  public function tearDown() : void
+  {
+    Mockery::close();
+  }
+
   public function test_grant_access()
   {
-    // $driver = new SessionArrayDriver([
-    //   'user_data' => [
-    //     'name' => 'Bernardino',
-    //     'role' => 'admin'
-    //   ]
-    // ]);
-
-    // $session = new SessionManager($driver);
-    // $auth = new Authenticator($session);
-    $auth = new AuthenticatorStub();
-    $access = new AccessHandler($auth);
-
-    $this->assertTrue($access->check('admin'));
+    $this->assertTrue($this->access->check('admin'));
   }
 
   public function test_deny_access()
   {
-    // $driver = new SessionArrayDriver([
-    //   'user_data' => [
-    //     'name' => 'Bernardino',
-    //     'role' => 'admin'
-    //   ]
-    // ]);
+    $this->assertFalse($this->access->check('editor'));
+  }
 
-    // $session = new SessionManager($driver);
-    // $auth = new Authenticator($session);
-    $auth = new AuthenticatorStub();
-    $access = new AccessHandler($auth);
+  protected function getAuthenticatorMock()
+  {
+    $user = Mockery::mock(User::class);
+    $user->role = 'admin';
 
-    $this->assertFalse($access->check('editor'));
+    $auth = Mockery::mock(Authenticator::class);
+
+    $auth->shouldReceive('check')
+      ->once()
+      ->andReturn(true);
+
+    $auth->shouldReceive('user')
+      ->once()
+      ->andReturn($user);
+
+    return $auth;
   }
 }
