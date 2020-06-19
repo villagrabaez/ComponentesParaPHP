@@ -2,63 +2,68 @@
 
 namespace App;
 
+use Closure;
+use InvalidArgumentException;
+use ReflectionClass;
+
 class Container
 {
-  protected static $container;
   protected $shared = [];
+  protected $bindings = [];
 
-  public static function getInstance()
+  public function  bind($name, $resolver)
   {
-    if (static::$container == null) {
-      static::$container = new Container;
-    }
-
-    return static::$container;
-  }
-
-  public static function setContainer(Container $container)
-  {
-    static::$container = $container;
-  }
-
-  public function clearContainer()
-  {
-    static::$container = null;
-  }
-
-  public function session()
-  {
-    if (isset ($this->shared['session'])) {
-      return $this->shared['session'];
-    }
-
-    $data = [
-      'user_data' => [
-        'name' => 'Bernardino',
-        'role' => 'teacher'
-      ]
+    $this->bindings[$name] = [
+      'resolver' => $resolver
     ];
-
-    $driver = new SessionArrayDriver($data);
-
-    return $this->shared['session'] = new SessionManager($driver);
   }
 
-  public function auth()
+  public function instance($name, $object)
   {
-    if (isset ($this->shared['auth'])) {
-      return $this->shared['auth'];
-    }
-
-    return $this->shared['auth'] =  new Authenticator($this->session());
+    $this->shared[$name] = $object;
   }
 
-  public function access()
+  public function make($name)
   {
-    if (isset ($this->shared['access'])) {
-      return $this->shared['access'];
+    if (isset ($this->shared[$name])) {
+      return $this->shared[$name];
     }
 
-    return $this->shared['access'] = new AccessHandler($this->auth());
+    $resolver = $this->bindings[$name]['resolver'];
+
+    if ($resolver instanceof Closure) {
+      $object = $resolver($this);
+    } else {
+      $object = $this->build($resolver);
+    }
+
+    return $object;
+  }
+
+  public function build($name)
+  {
+    $reflection = new ReflectionClass($name);
+
+    if ( ! $reflection->isInstantiable() ) {
+      throw new InvalidArgumentException("$name is not instantiable");
+    }
+
+    $costructor = $reflection->getConstructor();
+
+    if ( is_null($costructor) ) {
+      return new $name;
+    }
+
+    $constructorParameters = $costructor->getParameters();
+
+    $arguments = [];
+
+    foreach($constructorParameters as $constructorParameter) {
+      $parameterClassName = $constructorParameter->getClass()->getName();
+
+      $arguments[] = $this->build($parameterClassName);
+    }
+
+    return $reflection->newInstanceArgs($arguments);
   }
 }
